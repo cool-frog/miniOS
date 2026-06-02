@@ -49,6 +49,16 @@ int lib_getpid(void);
 /* Sleep for ms milliseconds. */
 void lib_sleep(unsigned int ms);
 
+void lib_lockinit();
+
+void lib_lock();
+
+void lib_unlock();
+
+void lib_yield();
+
+void lib_done();
+
 /* ------------------------------------------------------------------ *
  *  Memory                                                             *
  * ------------------------------------------------------------------ */

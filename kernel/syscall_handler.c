@@ -15,6 +15,7 @@
 #include <string.h>
 #include <unistd.h>    /* usleep */
 #include <time.h>      /* nanosleep fallback */
+#include <stdatomic.h> 
 #include "../include/kernel.h"
 #include "../include/syscall.h"
 
@@ -30,6 +31,11 @@ static syscall_result_t handle_process();
 static syscall_result_t handle_exit(uintptr_t status);
 static syscall_result_t handle_getpid(void);
 static syscall_result_t handle_sleep (uintptr_t ms);
+static syscall_result_t handle_lockinit();
+static syscall_result_t handle_lock();
+static syscall_result_t handle_unlock();
+static syscall_result_t handle_yield();
+static syscall_result_t handle_done();
 static syscall_result_t handle_alloc (uintptr_t size);
 static syscall_result_t handle_free  (uintptr_t ptr);
 
@@ -40,6 +46,7 @@ static syscall_result_t handle_free  (uintptr_t ptr);
 static int next_pid = 1;   /* process-ID counter */
 static int current_processes = 0;
 static process_t process_table [MAX_PROCESSES];
+static atomic_flag lock = ATOMIC_FLAG_INIT;
 
 /* ------------------------------------------------------------------ *
  *  Dispatcher — the heart of the kernel                              *
@@ -50,9 +57,6 @@ syscall_result_t kernel_handle_syscall(syscall_num_t num,
                                        uintptr_t a2,
                                        uintptr_t a3)
 {
-    kprintf("[kernel] syscall %d  args=(%lu, %lu, %lu, %lu)\n",
-            num, a0, a1, a2, a3);
-
     // When adding kernel functions, add a case here, and a new "handle_*()" function
     switch (num) {
         case SYS_WRITE:     return handle_write  (a0, a1, a2);
@@ -62,11 +66,15 @@ syscall_result_t kernel_handle_syscall(syscall_num_t num,
         case SYS_EXIT:      return handle_exit   (a0);
         case SYS_GETPID:    return handle_getpid ();
         case SYS_SLEEP:     return handle_sleep  (a0);
+        case SYS_LOCKINIT:  return handle_lockinit();
+        case SYS_LOCK:      return handle_lock();
+        case SYS_UNLOCK:    return handle_unlock();
+        case SYS_YIELD:     return handle_yield();
+        case SYS_DONE:      return handle_done();
         case SYS_ALLOC:     return handle_alloc  (a0);
         case SYS_FREE:      return handle_free   (a0);
 
         default:
-            kprintf("[kernel] unknown syscall %d — returning ENOSYS\n", num);
             return MINIOS_ENOSYS;
     }
 }
@@ -114,6 +122,8 @@ static syscall_result_t handle_spawn(uintptr_t thread_func_ptr, uintptr_t arg_pt
     process_table[i].state = PROC_READY;
     process_table[i].thread_func_ptr = (void * (*) (void *)) thread_func_ptr;
     process_table[i].thread_arg_ptr = (void *) arg_ptr;
+
+    return 0; //I think this goes here???
 }
 
 static syscall_result_t handle_process()
@@ -141,7 +151,6 @@ static syscall_result_t handle_process()
 
 static syscall_result_t handle_exit(uintptr_t status)
 {
-    kprintf("[kernel] process exiting with status %lu\n", status);
     exit((int)status);
     return MINIOS_OK;   /* unreachable, but keeps the compiler happy */
 }
@@ -162,6 +171,35 @@ static syscall_result_t handle_sleep(uintptr_t ms)
     return MINIOS_OK;
 }
 
+static syscall_result_t handle_lockinit()
+{
+    return 0;
+}
+
+static syscall_result_t handle_lock()
+{
+    while (atomic_flag_test_and_set(&lock)) {
+        ;
+    }
+    return MINIOS_OK;
+}
+
+static syscall_result_t handle_unlock()
+{
+    atomic_flag_clear(&lock);
+    return MINIOS_OK;
+}
+
+static syscall_result_t handle_yield()
+{
+    return 0;
+}
+
+static syscall_result_t handle_done()
+{
+    return 0;
+}
+
 static syscall_result_t handle_alloc(uintptr_t size)
 {
     if (size == 0) return MINIOS_EINVAL;
@@ -169,7 +207,6 @@ static syscall_result_t handle_alloc(uintptr_t size)
     void *ptr = malloc((size_t)size);
     if (!ptr) return MINIOS_ENOMEM;
 
-    kprintf("[kernel] alloc %lu bytes → %p\n", size, ptr);
     return (syscall_result_t)(uintptr_t)ptr;
 }
 
@@ -177,6 +214,5 @@ static syscall_result_t handle_free(uintptr_t ptr)
 {
     if (!ptr) return MINIOS_EINVAL;
     free((void *)ptr);
-    kprintf("[kernel] free %p\n", (void *)ptr);
     return MINIOS_OK;
 }

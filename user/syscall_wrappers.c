@@ -76,6 +76,33 @@ void lib_sleep(unsigned int ms)
     syscall(SYS_SLEEP, (uintptr_t)ms, 0, 0, 0);
 }
 
+void lib_lockinit()
+{
+    syscall(SYS_LOCKINIT, 0, 0, 0, 0);
+}
+
+void lib_lock()
+{
+    //kprintf("lib_lock\n");
+    syscall(SYS_LOCK, 0, 0, 0, 0);
+}
+
+void lib_unlock()
+{
+    //kprintf("lib_unlock\n");
+    syscall(SYS_UNLOCK, 0, 0, 0, 0);
+}
+
+void lib_yield()
+{
+    syscall(SYS_YIELD, 0, 0, 0, 0);
+}
+
+void lib_done()
+{
+    syscall(SYS_DONE, 0, 0, 0, 0);
+}
+
 /* ------------------------------------------------------------------ *
  *  Memory                                                             *
  * ------------------------------------------------------------------ */
