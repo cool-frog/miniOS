@@ -13,7 +13,7 @@
 
 void *processBody(void *pokemonName) {
     lib_lockinit();
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 25; i++)
     {
         lib_lock();
         lib_puts("I choose you, ");
