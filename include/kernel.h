@@ -10,12 +10,15 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <pthread.h>
+#include <stdbool.h>
+#include <stdatomic.h>
 #include "syscall.h"
 
 /* ------------------------------------------------------------------ *
  *  File-descriptor table (tiny, fixed-size for simplicity)           *
  * ------------------------------------------------------------------ */
 #define KERNEL_MAX_FDS 16
+#define MAX_PROCESSES 2
 
 typedef enum {
     FD_STDIN  = 0,
@@ -39,9 +42,10 @@ typedef struct {
     proc_state_t    state;
     int             exit_code;
     char            name[32];
-    void            *(*thread_func_ptr)(void *);
-    void            *thread_arg_ptr;
     pthread_t       thread;
+    bool            run_flag;
+    pthread_cond_t  condition;
+    struct timespec slice_expire_time;
 } process_t;
 
 /* ------------------------------------------------------------------ *
@@ -64,5 +68,12 @@ syscall_result_t kernel_handle_syscall(syscall_num_t num,
  *  Kernel logging (kernel/kprintf.c)                                  *
  * ------------------------------------------------------------------ */
 void kprintf(const char *fmt, ...);
+
+extern int next_pid;   /* process-ID counter */
+extern int current_processes;
+extern process_t process_table [MAX_PROCESSES];
+extern atomic_flag lock;
+extern process_t *current_process_ptr;
+extern pthread_mutex_t process_lock;
 
 #endif /* MINIOS_KERNEL_H */
